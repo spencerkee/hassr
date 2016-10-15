@@ -4,6 +4,7 @@ import pickle
 from copy import deepcopy
 import sys
 import graphviz as gv
+import itertools
 
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the screen."""
@@ -102,17 +103,100 @@ class colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# def reset_pickle_file(file_path, num_pickled_items):
-#     try:
-#         open(file_path, 'w').close()
-#     except FileNotFoundError:
-#         open(file_path, 'a').close()
-#     pickle.dump([[] for i in range(num_pickled_items)], open( filename, "wb" ))
+def reset_pickle_file(file_path, num_pickled_items):
+    try:
+        open(file_path, 'w').close()
+    except FileNotFoundError:
+        open(file_path, 'a').close()
+    pickle.dump([[] for i in range(num_pickled_items)], open(file_path, "wb" ))
 
-def progressive_hassing(all_items, graph_name, load, reset, save, num_items_shown=5,):
+def current_comparisons_minus_skipped(current_item, total_possible_comparisons, skipped_comparisons, verbose=False):
+    """
+    Given a list of possible comparisons and the current item, return a list of the comparisons with the item
+    besides those also in the skipped_comparisons list
+    """
+    return_list = []
+    for node_pair in [i for i in total_possible_comparisons if current_item in i]:
+        if not ((node_pair in skipped_comparisons) or [node_pair[1],node_pair[0]] in skipped_comparisons):
+            return_list.append(node_pair)
+        else:
+            if verbose:
+                print ('skipping' + str(node_pair))
+    return return_list
+
+def remove_relatives(graph, total_possible_comparisons, verbose=False):
+    """
+    Removes a comparison from total_possible_comparisons if there exists a path between each node
+    """
+
+    total_comparisons_copy = list(total_possible_comparisons)
+    for pair in total_possible_comparisons:
+        if nx.has_path(graph,pair[0],pair[1]):
+            total_comparisons_copy.remove(pair)
+            if verbose: print ('removing',pair)
+            continue
+        if nx.has_path(graph,pair[1],pair[0]):
+            total_comparisons_copy.remove(pair)
+            if verbose: print ('removing',pair)
+            continue
+    return total_comparisons_copy
+
+def progressive_hassing(all_items, graph_name, load, reset, save, num_items_shown=5):
+    assert num_items_shown <= 10
+
     getch = _Getch()
-    user_input = getch()
-    print (user_input)
+
+    if reset:
+        print ('===RESETING===')
+        load = False
+        reset_pickle_file("pickles/" + graph_name + ".p", num_pickled_items=5)
+    if load:
+        print ('===LOADING===')
+        pass
+    else:
+        print ('===STARING NEW===')
+        DG=nx.DiGraph()
+        [DG.add_node(i) for i in all_items]
+        total_possible_comparisons = [list(pair) for pair in itertools.combinations(all_items, 2)] 
+        moves = 0
+        skipped_comparisons = []
+
+    remaining_items = list(all_items)
+    while len(total_possible_comparisons) > 0:
+        print (str(len(total_possible_comparisons)) + ' comparisons left')
+        # current_item = random.choice(remaining_items)
+        current_item = remaining_items[0]
+        current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
+        print ("(g)reater than, (l)ess than, (s)kip, (q)uit?")
+        mode = 'g'
+        while len(current_comparisons) > 0:
+            print ("Mode = " + mode)
+            for i, j in enumerate(current_comparisons[:num_items_shown]):
+                print (i, j)
+            user_input = getch()
+            if user_input == 'q':
+                sys.exit('quit command')
+            if user_input in ['g','l','s']:
+                mode = user_input
+                continue
+            try:
+                input_index = int(user_input)
+                if input_index >= len(current_comparisons) or input_index >= num_items_shown:
+                    print ("invalid input: value too high")
+                    continue
+            except ValueError:
+                print ("invalid input: not [g] [l] [s] or convertable to int")
+                continue
+            if mode == 'g':
+                DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
+            elif mode == 'l':
+                DG.add_edge(current_comparisons[input_index][1],current_comparisons[input_index][0])
+            elif mode == 's':
+                skipped_comparisons.append(current_comparisons[input_index])
+            total_possible_comparisons.remove(current_comparisons[input_index])
+            total_possible_comparisons = remove_relatives(DG,total_possible_comparisons,verbose=True)
+            current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
+        remaining_items.remove(current_item)
 
 def main():
     if len(sys.argv) != 4:
