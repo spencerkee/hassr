@@ -162,30 +162,35 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
         skipped_comparisons = []
 
     remaining_items = list(all_items)
+    mode = 'g'
     while len(total_possible_comparisons) > 0:
         print (str(len(total_possible_comparisons)) + ' comparisons left')
-        # current_item = random.choice(remaining_items)
-        current_item = remaining_items[0]
+        current_item = random.choice(remaining_items)
         current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
-        print ("(g)reater than, (l)ess than, (s)kip, (q)uit?")
-        mode = 'g'
+        print ("(g)reater than, (l)ess than, (s)kip, (q)uit?, (n)ew")
+
         while len(current_comparisons) > 0:
-            print ("Mode = " + mode)
+            print (colors.OKGREEN + "Mode = " + mode + colors.ENDC)
             for i, j in enumerate(current_comparisons[:num_items_shown]):
-                print (i, j)
+                if j[0] != current_item:
+                    print (i, [j[1],j[0]])
+                else:
+                    print (i, j)
             user_input = getch()
             if user_input == 'q':
                 sys.exit('quit command')
             if user_input in ['g','l','s']:
                 mode = user_input
                 continue
+            if user_input == 'n':
+                break
             try:
                 input_index = int(user_input)
                 if input_index >= len(current_comparisons) or input_index >= num_items_shown:
-                    print ("invalid input: value too high")
+                    print (colors.WARNING + "invalid input: value too high" + colors.ENDC)
                     continue
             except ValueError:
-                print ("invalid input: not [g] [l] [s] or convertable to int")
+                print (colors.WARNING + "invalid input: not [g] [l] [s] or convertable to int" + colors.ENDC)
                 continue
             if mode == 'g':
                 DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
@@ -196,18 +201,17 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
             total_possible_comparisons.remove(current_comparisons[input_index])
             total_possible_comparisons = remove_relatives(DG,total_possible_comparisons,verbose=True)
             current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
-        remaining_items.remove(current_item)
 
 def main():
     if len(sys.argv) != 4:
-        sys.exit('Usage: ' + sys.argv[0] + ' incorrect number of arguments [load] [reset] [save]')
+        sys.exit(colors.WARNING + 'Usage: ' + sys.argv[0] + ' incorrect number of arguments [load] [reset] [save]' + colors.ENDC)
     for i in range(1,4):
         if sys.argv[i] == 'True':
             sys.argv[i] = True
         elif sys.argv[i] == 'False':
             sys.argv[i] = False
         else:
-            sys.exit('Usage: ' + sys.argv[0] + ' improper input [load] [reset] [save]')
+            sys.exit(colors.WARNING + 'Usage: ' + sys.argv[0] + ' improper input [load] [reset] [save]' + colors.ENDC)
 
     with open('item_list') as f:
         item_content = f.readlines()
@@ -215,7 +219,7 @@ def main():
 
     progressive_hassing(all_items=item_content,graph_name='movies',
         load=sys.argv[1], reset=sys.argv[2], save=sys.argv[3],
-        num_items_shown=5)
+        num_items_shown=10)
 
 if __name__ == '__main__':
     main()
