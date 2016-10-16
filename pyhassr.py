@@ -133,13 +133,40 @@ def remove_relatives(graph, total_possible_comparisons, verbose=False):
     for pair in total_possible_comparisons:
         if nx.has_path(graph,pair[0],pair[1]):
             total_comparisons_copy.remove(pair)
-            if verbose: print ('removing',pair)
+            if verbose: print (colors.OKGREEN + 'removing ' + str(pair) + colors.ENDC)
             continue
         if nx.has_path(graph,pair[1],pair[0]):
             total_comparisons_copy.remove(pair)
-            if verbose: print ('removing',pair)
+            if verbose: print (colors.OKGREEN + 'removing ' + str(pair) + colors.ENDC)
             continue
     return total_comparisons_copy
+
+def transitive_reduction(graph):
+    for node in graph.nodes():
+        for neighbor in graph.neighbors(node):
+            for child in all_successors(graph,neighbor):
+                if (node,child) in graph.edges(): 
+                    graph.remove_edge(node,child)
+                    print ('unecessary', node,child)
+    return graph
+
+def sort_by_minmax(graph, current, cur_comparisons, all_comparisons):
+    return_list = []
+    for comparison in cur_comparisons:
+        all_comparisons_copy = list(all_comparisons)
+
+        graph.add_edge(comparison[0],comparison[1])
+        x = len(all_comparisons) - len(remove_relatives(graph,all_comparisons,verbose=False))
+        graph.remove_edge(comparison[0],comparison[1])
+
+        graph.add_edge(comparison[1],comparison[0])
+        y = len(all_comparisons) - len(remove_relatives(graph,all_comparisons,verbose=False))
+        graph.remove_edge(comparison[1],comparison[0])
+
+        return_list.append([min(x,y),comparison])
+    return_list.sort(reverse=True)
+    return return_list
+            
 
 def progressive_hassing(all_items, graph_name, load, reset, save, num_items_shown=5):
     assert num_items_shown <= 10
@@ -163,19 +190,30 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
 
     remaining_items = list(all_items)
     mode = 'g'
+    print ("(g)reater than, (l)ess than, (s)kip, (q)uit?, (n)ew")
     while len(total_possible_comparisons) > 0:
-        print (str(len(total_possible_comparisons)) + ' comparisons left')
+        print (str(len(total_possible_comparisons)) + ' total comparisons left') 
+        DG = transitive_reduction(DG)
+        total_possible_comparisons = [i for i in total_possible_comparisons if i not in skipped_comparisons]
         current_item = random.choice(remaining_items)
         current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
-        print ("(g)reater than, (l)ess than, (s)kip, (q)uit?, (n)ew")
+        if len(current_comparisons) == 0:
+            remaining_items.remove(current_item)
+
 
         while len(current_comparisons) > 0:
+            expected_yield, current_comparisons = zip(*sort_by_minmax(DG,current_item,current_comparisons,total_possible_comparisons))
+
+            print (str(moves) + ' moves')
+            print (str(len(current_comparisons)) + ' current comparisons')
             print (colors.OKGREEN + "Mode = " + mode + colors.ENDC)
+            print ("current item: " + str(current_item))
             for i, j in enumerate(current_comparisons[:num_items_shown]):
-                if j[0] != current_item:
-                    print (i, [j[1],j[0]])
+                if j[0] != current_item: #puts the current item on the left when displaying
+                    print (i, j[0], expected_yield[i])
                 else:
-                    print (i, j)
+                    print (i, j[1], expected_yield[i])
+                # print (i,j, expected_yield[i])
             user_input = getch()
             if user_input == 'q':
                 sys.exit('quit command')
@@ -193,14 +231,25 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
                 print (colors.WARNING + "invalid input: not [g] [l] [s] or convertable to int" + colors.ENDC)
                 continue
             if mode == 'g':
-                DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
+                if current_comparisons[input_index][0] == current_item:
+                    DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
+                else:
+                    DG.add_edge(current_comparisons[input_index][1],current_comparisons[input_index][0])
             elif mode == 'l':
-                DG.add_edge(current_comparisons[input_index][1],current_comparisons[input_index][0])
+                if current_comparisons[input_index][0] == current_item:
+                    DG.add_edge(current_comparisons[input_index][1],current_comparisons[input_index][0])
+                else:
+                    DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
             elif mode == 's':
                 skipped_comparisons.append(current_comparisons[input_index])
+            print ('removing',current_comparisons[input_index])
             total_possible_comparisons.remove(current_comparisons[input_index])
+            total_possible_comparisons = [i for i in total_possible_comparisons if i not in skipped_comparisons]
             total_possible_comparisons = remove_relatives(DG,total_possible_comparisons,verbose=True)
             current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
+            moves += 1
+    print ('drawing')
+    draw(DG,'img/' + graph_name)
 
 def main():
     if len(sys.argv) != 4:
