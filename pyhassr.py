@@ -5,6 +5,7 @@ from copy import deepcopy
 import sys
 import graphviz as gv
 import itertools
+import os
 
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the screen."""
@@ -14,7 +15,6 @@ class _Getch:
         except ImportError:
             self.impl = _GetchUnix()
     def __call__(self): return self.impl()
-
 
 class _GetchUnix:
     def __init__(self):
@@ -128,7 +128,6 @@ def remove_relatives(graph, total_possible_comparisons, verbose=False):
     """
     Removes a comparison from total_possible_comparisons if there exists a path between each node
     """
-
     total_comparisons_copy = list(total_possible_comparisons)
     for pair in total_possible_comparisons:
         if nx.has_path(graph,pair[0],pair[1]):
@@ -142,6 +141,7 @@ def remove_relatives(graph, total_possible_comparisons, verbose=False):
     return total_comparisons_copy
 
 def transitive_reduction(graph):
+    """Performs a transitive reduction on a graph"""
     for node in graph.nodes():
         for neighbor in graph.neighbors(node):
             for child in all_successors(graph,neighbor):
@@ -166,11 +166,49 @@ def sort_by_minmax(graph, current, cur_comparisons, all_comparisons):
         return_list.append([min(x,y),comparison])
     return_list.sort(reverse=True)
     return return_list
-            
+
+def longest_path(G):
+    dist = {} # stores [node, distance] pair
+    for node in nx.topological_sort(G):
+        # pairs of dist,node for all incoming edges
+        pairs = [(dist[v][0]+1,v) for v in G.pred[node]] 
+        if pairs:
+            dist[node] = max(pairs)
+        else:
+            dist[node] = (0, node)
+    node,(length,_)  = max(dist.items(), key=lambda x:x[1])
+    path = []
+    while length > 0:
+        path.append(node)
+        length,node = dist[node]
+    return list(reversed(path))
+
+def get_files_with_extension(extension,file_path):
+    """
+    Returns a sorted list of all files in the current directory that end with the extension
+    """
+    file_list = []
+    for filename in os.listdir(file_path):
+      if filename.endswith(extension):
+          file_list.append(filename)
+    file_list.sort()
+    return file_list
+
+def read_data(filename='item_list'):
+    """
+    Convert a file with an item on each line into a list. If one of the lines is empty, ignore all items afterward.
+    """
+    with open(filename) as f:
+        item_content = f.readlines()
+        item_content = [x.strip('\n') for x in item_content] 
+
+    if '' in item_content:
+        item_content = item_content[:item_content.index('')]
+
+    return item_content
 
 def progressive_hassing(all_items, graph_name, load, reset, save, num_items_shown=5):
     assert num_items_shown <= 10
-
     getch = _Getch()
 
     if reset:
@@ -179,7 +217,7 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
         reset_pickle_file("pickles/" + graph_name + ".p", num_pickled_items=5)
     if load:
         print ('===LOADING===')
-        pass
+        DG,remaining_items,total_possible_comparisons, moves, skipped_comparisons = pickle.load(open("pickles/" + graph_name + ".p", "rb" ))
     else:
         print ('===STARING NEW===')
         DG=nx.DiGraph()
@@ -187,43 +225,48 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
         total_possible_comparisons = [list(pair) for pair in itertools.combinations(all_items, 2)] 
         moves = 0
         skipped_comparisons = []
+        remaining_items = list(all_items)
 
-    remaining_items = list(all_items)
     mode = 'g'
     print ("(g)reater than, (l)ess than, (s)kip, (q)uit?, (n)ew")
-    while len(total_possible_comparisons) > 0:
-        print (str(len(total_possible_comparisons)) + ' total comparisons left') 
+    while len(total_possible_comparisons) > 0: 
         DG = transitive_reduction(DG)
-        total_possible_comparisons = [i for i in total_possible_comparisons if i not in skipped_comparisons]
+        total_possible_comparisons = [i for i in total_possible_comparisons if i not in skipped_comparisons]#check if necessary
         current_item = random.choice(remaining_items)
         current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
         if len(current_comparisons) == 0:
             remaining_items.remove(current_item)
 
-
+        need_resort = True
         while len(current_comparisons) > 0:
-            expected_yield, current_comparisons = zip(*sort_by_minmax(DG,current_item,current_comparisons,total_possible_comparisons))
-
+            if need_resort:
+                expected_yield, current_comparisons = zip(*sort_by_minmax(DG,current_item,current_comparisons,total_possible_comparisons))
+                need_resort = False
+            print (str(len(remaining_items)) + ' remaining_items')
+            print (colors.OKBLUE + str(len(total_possible_comparisons)) + ' total comparisons left' + colors.ENDC)
             print (str(moves) + ' moves')
             print (str(len(current_comparisons)) + ' current comparisons')
             print (colors.OKGREEN + "Mode = " + mode + colors.ENDC)
             print ("current item: " + str(current_item))
             for i, j in enumerate(current_comparisons[:num_items_shown]):
                 if j[0] != current_item: #puts the current item on the left when displaying
-                    print (i, j[0], expected_yield[i])
+                    print (i, j[1],'_',j[0], expected_yield[i])
                 else:
-                    print (i, j[1], expected_yield[i])
+                    print (i, j[0],'_',j[1], expected_yield[i])
                 # print (i,j, expected_yield[i])
             user_input = getch()
             if user_input == 'q':
                 sys.exit('quit command')
             if user_input in ['g','l','s']:
                 mode = user_input
+                need_resort = False
                 continue
             if user_input == 'n':
+                need_resort = True
                 break
             try:
                 input_index = int(user_input)
+                need_resort = True
                 if input_index >= len(current_comparisons) or input_index >= num_items_shown:
                     print (colors.WARNING + "invalid input: value too high" + colors.ENDC)
                     continue
@@ -242,12 +285,24 @@ def progressive_hassing(all_items, graph_name, load, reset, save, num_items_show
                     DG.add_edge(current_comparisons[input_index][0],current_comparisons[input_index][1])
             elif mode == 's':
                 skipped_comparisons.append(current_comparisons[input_index])
-            print ('removing',current_comparisons[input_index])
+                need_resort = False
+            print ('Removing',current_comparisons[input_index])
             total_possible_comparisons.remove(current_comparisons[input_index])
             total_possible_comparisons = [i for i in total_possible_comparisons if i not in skipped_comparisons]
             total_possible_comparisons = remove_relatives(DG,total_possible_comparisons,verbose=True)
             current_comparisons = current_comparisons_minus_skipped(current_item,total_possible_comparisons, skipped_comparisons, verbose=True)
             moves += 1
+
+            # if moves % 20 == 0:
+            #     print ('drawing')
+            #     draw(DG,'img/' + graph_name + str(moves))
+            if save:
+                print ('saving')
+                try:
+                    pickle.dump((DG,remaining_items,total_possible_comparisons, moves, skipped_comparisons), open( "pickles/" + graph_name + ".p", "wb" ))
+                except FileNotFoundError:
+                    open("pickles/" + graphviz + ".p", 'a').close()
+                    pickle.dump((DG,remaining_items,total_possible_comparisons, moves, skipped_comparisons), open( "pickles/" + graph_name + ".p", "wb" ))
     print ('drawing')
     draw(DG,'img/' + graph_name)
 
@@ -262,9 +317,7 @@ def main():
         else:
             sys.exit(colors.WARNING + 'Usage: ' + sys.argv[0] + ' improper input [load] [reset] [save]' + colors.ENDC)
 
-    with open('item_list') as f:
-        item_content = f.readlines()
-        item_content = [x.strip('\n') for x in item_content] 
+    item_content = read_data()
 
     progressive_hassing(all_items=item_content,graph_name='movies',
         load=sys.argv[1], reset=sys.argv[2], save=sys.argv[3],
@@ -272,3 +325,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
