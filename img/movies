@@ -1,27 +1,26 @@
 digraph {
 	Titanic
-	"Jurassic Park"
 	Ghostbusters
-	"The Dark Knight"
-	Avatar
-	"Raiders of the Lost Ark"
-	"Star Wars"
 	"Home Alone"
-	"Forrest Gump"
-	"Men in Black"
 	Rocky
-		Titanic -> Rocky
-		"Jurassic Park" -> Ghostbusters
-		Ghostbusters -> Titanic
-		"The Dark Knight" -> "Forrest Gump"
-		"The Dark Knight" -> "Men in Black"
-		Avatar -> "Forrest Gump"
-		Avatar -> "Men in Black"
-		"Raiders of the Lost Ark" -> "Jurassic Park"
-		"Raiders of the Lost Ark" -> "Star Wars"
-		"Star Wars" -> Titanic
-		"Star Wars" -> Rocky
-		"Forrest Gump" -> "Raiders of the Lost Ark"
-		"Men in Black" -> "Raiders of the Lost Ark"
+	"Raiders of the Lost Ark"
+	Inception
+	"Forrest Gump"
+	"The Matrix"
+	Avatar
+	"The Dark Knight"
+		Titanic -> "Home Alone"
+		Ghostbusters -> "Forrest Gump"
 		Rocky -> "Home Alone"
+		"Raiders of the Lost Ark" -> "Forrest Gump"
+		Inception -> "Forrest Gump"
+		Inception -> Avatar
+		"Forrest Gump" -> "Home Alone"
+		"The Matrix" -> Titanic
+		"The Matrix" -> Rocky
+		"The Matrix" -> "Forrest Gump"
+		"The Matrix" -> Avatar
+		"The Matrix" -> "The Dark Knight"
+		Avatar -> "Home Alone"
+		"The Dark Knight" -> "Home Alone"
 }
