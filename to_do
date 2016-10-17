@@ -1,13 +1,21 @@
--check for duplicates in item_list
+-check for duplicates in item_list, add to read_data function
 DONE transitive reduction function
 DONE add text coloring
 DONE add (n)ew item switch feature
--pickeling
+DONE pickeling
 -set modes to different colors?
 -print mode more clearly
--add move counting
+DONE -add move counting
 DONE minmax sorting
 -change warning placement, currently it's hard to see
 -change cli arguments from boolean, currently unclear
 -need to remove skipped from total comparisons
 -total comparisons left will repeatedly print if there are multiple remaining items without comparisons
+-clean up imports?
+DONE -sort_by_minmax probably called too much
+-remove_relatives and minmax are forcasting different numbers, minmax not estimating properly (should show best and worse case)
+-possibly estimate which choice will be taken based on an item profile?
+-if something is added to skipped, it's removed from total pairs and minmax gives different answers?
+-look into functionality of read_data. May fault if there are more than one blank lines. It should go line by line instead of reading the whole file. Also rename to something more accurate
+-implement different presentation methods: traversing longest path, slot filling
+-create directory if none is found?
